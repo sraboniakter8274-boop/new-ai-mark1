@@ -1,124 +1,210 @@
-import pygame
-import random
-import sys
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>5-Level Space Shooter Game</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0d0d1a;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 3px solid #4a4e69;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 200, 0.2);
+        }
+        .info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
 
-# Pygame Initialization
-pygame.init()
+    <canvas id="gameCanvas" width="600" height="500"></canvas>
+    <div class="info">কন্ট্রোল: Left/Right Arrow = সরান | Spacebar = শুট করুন</div>
 
-# Screen Dimensions & Settings
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("5-Level Ball Catcher Game")
-clock = pygame.time.Clock()
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-# Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (230, 50, 50)
-BLUE = (50, 120, 230)
-GOLD = (255, 215, 0)
+// Game Settings & Levels
+let level = 1;
+const maxLevels = 5;
+let score = 0;
+let gameOver = false;
+let gameWon = false;
 
-# Game Variables
-current_level = 1
-max_levels = 5
-score = 0
+const levelConfig = {
+    1: { enemySpeed: 1.5, spawnRate: 90, targetScore: 10 },
+    2: { enemySpeed: 2.2, spawnRate: 75, targetScore: 25 },
+    3: { enemySpeed: 3.0, spawnRate: 60, targetScore: 45 },
+    4: { enemySpeed: 3.8, spawnRate: 45, targetScore: 70 },
+    5: { enemySpeed: 4.8, spawnRate: 30, targetScore: 100 }
+};
 
-# Player (Paddle)
-paddle_width = 120
-paddle_height = 15
-paddle_x = (WIDTH - paddle_width) // 2
-paddle_y = HEIGHT - 40
-paddle_speed = 8
+// Player Ship
+const player = {
+    x: canvas.width / 2 - 20,
+    y: canvas.height - 50,
+    width: 40,
+    height: 30,
+    speed: 6
+};
 
-# Ball
-ball_radius = 12
-ball_x = random.randint(ball_radius, WIDTH - ball_radius)
-ball_y = 50
+// Controls
+const keys = {};
+document.addEventListener("keydown", (e) => { keys[e.code] = true; });
+document.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
-# Level Configuration [Ball Speed, Target Score]
-level_config = {
-    1: {"speed": 4, "target": 5},
-    2: {"speed": 6, "target": 12},
-    3: {"speed": 8, "target": 20},
-    4: {"speed": 10, "target": 30},
-    5: {"speed": 13, "target": 42}
+// Bullets and Enemies
+let bullets = [];
+let enemies = [];
+let frameCount = 0;
+
+function shootBullet() {
+    bullets.push({
+        x: player.x + player.width / 2 - 3,
+        y: player.y,
+        width: 6,
+        height: 12,
+        speed: 8
+    });
 }
 
-font = pygame.font.SysFont("Arial", 28)
-big_font = pygame.font.SysFont("Arial", 50)
+// Keydown event for Space shooting (single shot per press)
+document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !gameOver && !gameWon) {
+        shootBullet();
+    }
+});
 
-def reset_ball():
-    global ball_x, ball_y
-    ball_x = random.randint(ball_radius, WIDTH - ball_radius)
-    ball_y = 50
+function spawnEnemy() {
+    const config = levelConfig[level];
+    enemies.push({
+        x: Math.random() * (canvas.width - 30),
+        y: -30,
+        width: 30,
+        height: 30,
+        speed: config.enemySpeed
+    });
+}
 
-# Main Game Loop
-running = True
-game_over = False
-game_won = False
+function update() {
+    if (gameOver || gameWon) return;
 
-while running:
-    screen.fill(BLACK)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    frameCount++;
 
-    if not game_over and not game_won:
-        # Paddle Movement
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] and paddle_x > 0:
-            paddle_x -= paddle_speed
-        if keys[pygame.K_RIGHT] and paddle_x < WIDTH - paddle_width:
-            paddle_x += paddle_speed
+    // Move Player
+    if (keys["ArrowLeft"] && player.x > 0) player.x -= player.speed;
+    if (keys["ArrowRight"] && player.x < canvas.width - player.width) player.x += player.speed;
 
-        # Ball Movement
-        current_speed = level_config[current_level]["speed"]
-        ball_y += current_speed
+    // Move Bullets
+    bullets.forEach((bullet, index) => {
+        bullet.y -= bullet.speed;
+        if (bullet.y < 0) bullets.splice(index, 1);
+    });
 
-        # Collision with Paddle
-        if paddle_y < ball_y + ball_radius < paddle_y + paddle_height:
-            if paddle_x < ball_x < paddle_x + paddle_width:
-                score += 1
-                reset_ball()
+    // Spawn Enemies
+    if (frameCount % levelConfig[level].spawnRate === 0) {
+        spawnEnemy();
+    }
 
-        # Ball Missed (Game Over)
-        if ball_y > HEIGHT:
-            game_over = True
+    // Move Enemies
+    enemies.forEach((enemy, eIndex) => {
+        enemy.y += enemy.speed;
 
-        # Level Progression Check
-        if score >= level_config[current_level]["target"]:
-            if current_level < max_levels:
-                current_level += 1
-                reset_ball()
-            else:
-                game_won = True
+        // Enemy Reaches Bottom (Game Over)
+        if (enemy.y > canvas.height) {
+            gameOver = true;
+        }
 
-        # Draw Paddle & Ball
-        pygame.draw.rect(screen, BLUE, (paddle_x, paddle_y, paddle_width, paddle_height))
-        pygame.draw.circle(screen, RED, (ball_x, ball_y), ball_radius)
+        // Check Collision with Player
+        if (
+            player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y
+        ) {
+            gameOver = true;
+        }
 
-        # Draw UI Info
-        score_text = font.render(f"Score: {score}", True, WHITE)
-        level_text = font.render(f"Level: {current_level}/{max_levels}", True, GOLD)
-        target_text = font.render(f"Target: {level_config[current_level]['target']}", True, WHITE)
-        
-        screen.blit(score_text, (20, 20))
-        screen.blit(level_text, (WIDTH // 2 - 60, 20))
-        screen.blit(target_text, (WIDTH - 150, 20))
+        // Check Collision with Bullets
+        bullets.forEach((bullet, bIndex) => {
+            if (
+                bullet.x < enemy.x + enemy.width &&
+                bullet.x + bullet.width > enemy.x &&
+                bullet.y < enemy.y + enemy.height &&
+                bullet.y + bullet.height > enemy.y
+            ) {
+                enemies.splice(eIndex, 1);
+                bullets.splice(bIndex, 1);
+                score += 1;
 
-    elif game_over:
-        msg = big_font.render("GAME OVER!", True, RED)
-        final_score = font.render(f"Final Score: {score}", True, WHITE)
-        screen.blit(msg, (WIDTH // 2 - 130, HEIGHT // 2 - 50))
-        screen.blit(final_score, (WIDTH // 2 - 80, HEIGHT // 2 + 10))
+                // Level Up Check
+                if (score >= levelConfig[level].targetScore) {
+                    if (level < maxLevels) {
+                        level++;
+                    } else {
+                        gameWon = true;
+                    }
+                }
+            }
+        });
+    });
+}
 
-    elif game_won:
-        msg = big_font.render("YOU WIN ALL 5 LEVELS!", True, GOLD)
-        screen.blit(msg, (WIDTH // 2 - 240, HEIGHT // 2 - 30))
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    pygame.display.flip()
-    clock.tick(60)
+    if (!gameOver && !gameWon) {
+        // Draw Player (Green Ship)
+        ctx.fillStyle = "#00ff88";
+        ctx.fillRect(player.x, player.y, player.width, player.height);
 
-pygame.quit()
-sys.exit()
+        // Draw Bullets (Yellow)
+        ctx.fillStyle = "#ffea00";
+        bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+        // Draw Enemies (Red)
+        ctx.fillStyle = "#ff3366";
+        enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+
+        // Draw UI
+        ctx.fillStyle = "#fff";
+        ctx.font = "16px sans-serif";
+        ctx.fillText(`Score: ${score}`, 15, 25);
+        ctx.fillText(`Level: ${level}/${maxLevels}`, canvas.width / 2 - 35, 25);
+        ctx.fillText(`Target: ${levelConfig[level].targetScore}`, canvas.width - 100, 25);
+    } else if (gameOver) {
+        ctx.fillStyle = "#ff3366";
+        ctx.font = "36px sans-serif";
+        ctx.fillText("GAME OVER!", canvas.width / 2 - 110, canvas.height / 2);
+        ctx.fillStyle = "#fff";
+        ctx.font = "18px sans-serif";
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2 - 55, canvas.height / 2 + 40);
+    } else if (gameWon) {
+        ctx.fillStyle = "#00ff88";
+        ctx.font = "32px sans-serif";
+        ctx.fillText("YOU COMPLETED ALL 5 LEVELS!", canvas.width / 2 - 230, canvas.height / 2);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
