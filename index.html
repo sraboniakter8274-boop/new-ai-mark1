@@ -1,86 +1,124 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Ai Mark1</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+import pygame
+import random
+import sys
 
-        body {
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+# Pygame Initialization
+pygame.init()
 
-        .power-btn {
-            width: 220px;
-            height: 70px;
-            background: linear-gradient(45deg, #ff416c, #ff4b2b);
-            color: #ffffff;
-            font-size: 24px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(255, 75, 43, 0.4);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
+# Screen Dimensions & Settings
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("5-Level Ball Catcher Game")
+clock = pygame.time.Clock()
 
-        .power-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(255, 75, 43, 0.6);
-        }
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (230, 50, 50)
+BLUE = (50, 120, 230)
+GOLD = (255, 215, 0)
 
-        .power-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 5px 15px rgba(255, 75, 43, 0.4);
-        }
-    </style>
-</head>
-<body>
+# Game Variables
+current_level = 1
+max_levels = 5
+score = 0
 
-    <button class="power-btn" onclick="speakAI()">POWER</button>
+# Player (Paddle)
+paddle_width = 120
+paddle_height = 15
+paddle_x = (WIDTH - paddle_width) // 2
+paddle_y = HEIGHT - 40
+paddle_speed = 8
 
-    <script>
-        function speakAI() {
-            const text ="আসসালামু আলাইকুম, কেমন আছেন মাস্টার? আমি আপনাকে কীভাবে সাহায্য করতে পারি?";
-            
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // আগের কথা বন্ধ করার জন্য
+# Ball
+ball_radius = 12
+ball_x = random.randint(ball_radius, WIDTH - ball_radius)
+ball_y = 50
 
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'bn-BD'; // বাংলা ভাষা
-                utterance.pitch = 1.3;     // গলার সুর মিষ্টি ও মেয়েদের মতো করার জন্য
-                utterance.rate = 0.9;      // কথা বলার গতি
+# Level Configuration [Ball Speed, Target Score]
+level_config = {
+    1: {"speed": 4, "target": 5},
+    2: {"speed": 6, "target": 12},
+    3: {"speed": 8, "target": 20},
+    4: {"speed": 10, "target": 30},
+    5: {"speed": 13, "target": 42}
+}
 
-                // ব্রাউজারের উপলব্ধ ভয়েস নির্বাচন
-                const voices = window.speechSynthesis.getVoices();
-                const femaleVoice = voices.find(voice => voice.lang.includes('bn') || voice.name.includes('Female') || voice.name.includes('Google'));
-                
-                if (femaleVoice) {
-                    utterance.voice = femaleVoice;
-                }
+font = pygame.font.SysFont("Arial", 28)
+big_font = pygame.font.SysFont("Arial", 50)
 
-                window.speechSynthesis.speak(utterance);
-            } else {
-                alert("আপনার ব্রাউজারে স্পিচ সাপোর্ট নেই।");
-            }
-        }
+def reset_ball():
+    global ball_x, ball_y
+    ball_x = random.randint(ball_radius, WIDTH - ball_radius)
+    ball_y = 50
 
-        // ভয়েস লোড হওয়া নিশ্চিত করা
-        window.speechSynthesis.onvoiceschanged = function() {
-            window.speechSynthesis.getVoices();
-        };
-    </script>
+# Main Game Loop
+running = True
+game_over = False
+game_won = False
 
-</body>
-</html>
+while running:
+    screen.fill(BLACK)
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    if not game_over and not game_won:
+        # Paddle Movement
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT] and paddle_x > 0:
+            paddle_x -= paddle_speed
+        if keys[pygame.K_RIGHT] and paddle_x < WIDTH - paddle_width:
+            paddle_x += paddle_speed
+
+        # Ball Movement
+        current_speed = level_config[current_level]["speed"]
+        ball_y += current_speed
+
+        # Collision with Paddle
+        if paddle_y < ball_y + ball_radius < paddle_y + paddle_height:
+            if paddle_x < ball_x < paddle_x + paddle_width:
+                score += 1
+                reset_ball()
+
+        # Ball Missed (Game Over)
+        if ball_y > HEIGHT:
+            game_over = True
+
+        # Level Progression Check
+        if score >= level_config[current_level]["target"]:
+            if current_level < max_levels:
+                current_level += 1
+                reset_ball()
+            else:
+                game_won = True
+
+        # Draw Paddle & Ball
+        pygame.draw.rect(screen, BLUE, (paddle_x, paddle_y, paddle_width, paddle_height))
+        pygame.draw.circle(screen, RED, (ball_x, ball_y), ball_radius)
+
+        # Draw UI Info
+        score_text = font.render(f"Score: {score}", True, WHITE)
+        level_text = font.render(f"Level: {current_level}/{max_levels}", True, GOLD)
+        target_text = font.render(f"Target: {level_config[current_level]['target']}", True, WHITE)
+        
+        screen.blit(score_text, (20, 20))
+        screen.blit(level_text, (WIDTH // 2 - 60, 20))
+        screen.blit(target_text, (WIDTH - 150, 20))
+
+    elif game_over:
+        msg = big_font.render("GAME OVER!", True, RED)
+        final_score = font.render(f"Final Score: {score}", True, WHITE)
+        screen.blit(msg, (WIDTH // 2 - 130, HEIGHT // 2 - 50))
+        screen.blit(final_score, (WIDTH // 2 - 80, HEIGHT // 2 + 10))
+
+    elif game_won:
+        msg = big_font.render("YOU WIN ALL 5 LEVELS!", True, GOLD)
+        screen.blit(msg, (WIDTH // 2 - 240, HEIGHT // 2 - 30))
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+sys.exit()
